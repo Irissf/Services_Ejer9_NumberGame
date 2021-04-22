@@ -23,6 +23,9 @@ namespace Services_Ejer9_NumberGame
         static bool gameStart = false;
         static int timeToStartGame = 10;//descendemos a 0
         static object key = new object();
+        static Thread threadTimer;
+        static bool notStartCountAgain = false;
+
         static void Main(string[] args)
         {
 
@@ -34,6 +37,9 @@ namespace Services_Ejer9_NumberGame
                 socketServe.Bind(ipEndPoint);
                 socketServe.Listen(3);
 
+                //El hilo del timer
+                threadTimer = new Thread(timerGame);
+
                 //Cuando aceptemos a un usuario lo metemos en un hilo
                 while (!gameStart)
                 {
@@ -42,7 +48,8 @@ namespace Services_Ejer9_NumberGame
                     //creamos un hilo para el cliente conectado
                     Thread thread = new Thread(Game);
                     thread.Start(socketClient);
-                    
+                   
+
                 }
             }
             catch (SocketException e) when (e.ErrorCode == (int)SocketError.AddressAlreadyInUse)
@@ -67,40 +74,37 @@ namespace Services_Ejer9_NumberGame
                     sw.WriteLine("Hello");
                     sw.WriteLine("num usuarios:" + playerList.Count);
                 }
-                
-                if (playerList.Count >= 2)
+
+                if (playerList.Count >= 2 && !notStartCountAgain)
                 {
                     //si ya hay dos jugadores lanzamos la cuenta atrás y el timer al llegar a 0 cambia gamestart a true para que no entren más jugadores
-                    Thread threadTimer = new Thread(timerGame);
                     threadTimer.Start();
-
+                    notStartCountAgain = true;
                 }
+                
             }
         }
 
         static void timerGame()
         {
-            
-            for (int i = 0; i < playerList.Count; i++)
-            {
-                
-                Console.WriteLine("Entro aqui");
-                using (NetworkStream ns = new NetworkStream(playerList[i].SocketPlayer))
-                using (StreamReader sr = new StreamReader(ns))
-                using (StreamWriter sw = new StreamWriter(ns))
-                {
-                    while (timeToStartGame > 0)
-                    {
-                        Thread.Sleep(1000);
-                        lock (key)
-                        {
-                            //variable común para más de un método
-                            timeToStartGame--;
 
-                            sw.WriteLine("Time to start: {0}", timeToStartGame);
-                        }
+            while (timeToStartGame > 0)
+            {
+                Thread.Sleep(1000);
+
+                //variable común para más de un método
+                timeToStartGame--;
+                for (int i = 0; i < playerList.Count; i++)
+                {
+
+                    Console.WriteLine("Entro aqui");
+                    using (NetworkStream ns = new NetworkStream(playerList[i].SocketPlayer))
+                    using (StreamReader sr = new StreamReader(ns))
+                    using (StreamWriter sw = new StreamWriter(ns))
+                    {
+                        sw.WriteLine("Time to start: {0}", timeToStartGame);
                     }
-                   
+
                 }
             }
 
