@@ -19,5 +19,6 @@ namespace Services_Ejer9_NumberGame
             this.Number = number;
             this.SocketPlayer = socketPlayer;
         }
+       
     }
 }

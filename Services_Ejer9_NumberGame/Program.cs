@@ -26,6 +26,8 @@ namespace Services_Ejer9_NumberGame
         static Thread threadTimer;
         static bool notStartCountAgain = false;
         static int numberWin = 0;
+        static bool repeatGame = false;
+
 
         static void Main(string[] args)
         {
@@ -35,24 +37,29 @@ namespace Services_Ejer9_NumberGame
 
             try
             {
-                socketServe.Bind(ipEndPoint);
-                socketServe.Listen(3);
-
-                //El hilo del timer
-                threadTimer = new Thread(timerGame);
-
-                //El numero ganador de la partida
-                numberWin = randomNumber.Next(1, 21);
-
-                //Cuando aceptemos a un usuario lo metemos en un hilo
-                while (!gameStart)
+                do
                 {
-                    Socket socketClient = socketServe.Accept();
+                    socketServe.Bind(ipEndPoint);
+                    socketServe.Listen(3);
 
-                    //creamos un hilo para el cliente conectado
-                    Thread thread = new Thread(Game);
-                    thread.Start(socketClient);
-                }
+                    //El hilo del timer
+                    threadTimer = new Thread(timerGame);
+
+                    //El numero ganador de la partida
+                    numberWin = randomNumber.Next(1, 21);
+
+                    //Cuando aceptemos a un usuario lo metemos en un hilo
+                    while (!gameStart)
+                    {
+                        Socket socketClient = socketServe.Accept();
+
+                        //creamos un hilo para el cliente conectado
+                        Thread thread = new Thread(Game);
+                        repeatGame = false;
+                        thread.Start(socketClient);
+
+                    }
+                } while (repeatGame);
             }
             catch (SocketException e) when (e.ErrorCode == (int)SocketError.AddressAlreadyInUse)
             {
@@ -83,6 +90,7 @@ namespace Services_Ejer9_NumberGame
                 if (playerList.Count >= 2 && !notStartCountAgain)
                 {
                     //si ya hay dos jugadores lanzamos la cuenta atrás y el timer al llegar a 0 cambia gamestart a true para que no entren más jugadores
+
                     threadTimer.Start();
                     notStartCountAgain = true;
                 }
@@ -152,9 +160,34 @@ namespace Services_Ejer9_NumberGame
                 }
             }
 
+            for (int i = 0; i < playerList.Count; i++)
+            {
+                try
+                {
+                    using (NetworkStream ns = new NetworkStream(playerList[i].SocketPlayer))
+                    using (StreamReader sr = new StreamReader(ns))
+                    using (StreamWriter sw = new StreamWriter(ns))
+                    {
+                        playerList[i].SocketPlayer.Close();
+                    }
+                }
+
+                catch (Exception)
+                {
+                    //De esta forma si se desconecta alguien lo quita de la colección y sigue con el resto de jugadores
+                    Console.WriteLine("Error");
+                    playerList.RemoveAt(i);
+                }
+            }
+
             lock (key)
             {
+                //TODO ver un hilo ligado a otro para que finalicen los dos
                 playerList.RemoveRange(0, playerList.Count); //creo que vaciamos la colección
+                repeatGame = true;
+                notStartCountAgain = false;
+                threadTimer.Abort();
+                //cerrar el hilo
             }
             Console.WriteLine(playerList.Count);
 
