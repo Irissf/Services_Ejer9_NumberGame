@@ -21,11 +21,12 @@ namespace Services_Ejer9_NumberGame
         static List<Player> playerList = new List<Player>();
         static Random randomNumber = new Random();
         static bool gameStart = false;
-        static int timeToStartGame = 5;//descendemos a 0
+        static int timeToStartGame =20;//descendemos a 0
         static object key = new object();
         
         static int numberWin = 0;
         static bool repeatGame = false;
+        static bool timerStart = false;
 
 
         static void Main(string[] args)
@@ -83,12 +84,13 @@ namespace Services_Ejer9_NumberGame
                     sw.WriteLine("Hello");
                     sw.WriteLine("num usuarios:" + playerList.Count);
                 }
-                if (playerList.Count >= 2)
+                if (playerList.Count >= 2 && !timerStart)
                 {
-                
+
                     //si ya hay dos jugadores lanzamos la cuenta atrás y el timer al llegar a 0 cambia gamestart a true para que no entren más jugadores
 
                     //El hilo del timer
+                    timerStart = true;
                     Thread threadTimer = new Thread(timerGame);
                     threadTimer.Start();
                 }
@@ -111,6 +113,36 @@ namespace Services_Ejer9_NumberGame
 
                 //variable común para más de un método
                 timeToStartGame--;
+                
+                //metemos en un lock pues accedemos a la colección
+                lock (key)
+                {
+                    for (int i = 0; i < playerList.Count; i++)
+                    {
+
+                        try
+                        {
+                            using (NetworkStream ns = new NetworkStream(playerList[i].SocketPlayer))
+                            using (StreamReader sr = new StreamReader(ns))
+                            using (StreamWriter sw = new StreamWriter(ns))
+                            {
+                                sw.WriteLine("Time to start: {0}", timeToStartGame);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //De esta forma si se desconecta alguien lo quita de la colección y sigue con el resto de jugadores
+                            Console.WriteLine("Error");
+                            playerList.RemoveAt(i);
+                        }
+                    }
+                }
+                
+            }
+
+            //comunicamos el resultado
+            lock (key)
+            {
                 for (int i = 0; i < playerList.Count; i++)
                 {
                     try
@@ -119,9 +151,22 @@ namespace Services_Ejer9_NumberGame
                         using (StreamReader sr = new StreamReader(ns))
                         using (StreamWriter sw = new StreamWriter(ns))
                         {
-                            sw.WriteLine("Time to start: {0}", timeToStartGame);
+                            //pasar el numero aleatorio
+                            sw.WriteLine("numero:{0}", playerList[i].Number);
+
+                            //comparar
+                            if (playerList[i].Number == numberWin)
+                            {
+                                sw.WriteLine("You win");
+                            }
+                            else
+                            {
+                                sw.WriteLine("You lose the correct numbert is:{0}", numberWin);
+                            }
+
                         }
                     }
+
                     catch (Exception)
                     {
                         //De esta forma si se desconecta alguien lo quita de la colección y sigue con el resto de jugadores
@@ -131,52 +176,24 @@ namespace Services_Ejer9_NumberGame
                 }
             }
 
-            //comunicamos el resultado
-            for (int i = 0; i < playerList.Count; i++)
-            {
-                try
-                {
-                    using (NetworkStream ns = new NetworkStream(playerList[i].SocketPlayer))
-                    using (StreamReader sr = new StreamReader(ns))
-                    using (StreamWriter sw = new StreamWriter(ns))
-                    {
-                        //pasar el numero aleatorio
-                        sw.WriteLine("numero:{0}", playerList[i].Number);
-
-                        //comparar
-                        if (playerList[i].Number == numberWin)
-                        {
-                            sw.WriteLine("You win");
-                        }
-                        else
-                        {
-                            sw.WriteLine("You lose the correct numbert is:{0}", numberWin);
-                        }
-
-                    }
-                }
-
-                catch (Exception)
-                {
-                    //De esta forma si se desconecta alguien lo quita de la colección y sigue con el resto de jugadores
-                    Console.WriteLine("Error");
-                    playerList.RemoveAt(i);
-                }
-            }
 
             //Les quitamos la conexión con el servidor
-            for (int i = 0; i < playerList.Count; i++)
+            lock (key)
             {
-                try
+                for (int i = 0; i < playerList.Count; i++)
                 {
-                    playerList[i].SocketPlayer.Close();
-                }
-                catch (Exception)
-                { 
-                    Console.WriteLine("Error");
-                    playerList.RemoveAt(i);
+                    try
+                    {
+                        playerList[i].SocketPlayer.Close();
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Error");
+                        playerList.RemoveAt(i);
+                    }
                 }
             }
+           
 
             //Reiniciamos
             lock (key)
@@ -185,6 +202,7 @@ namespace Services_Ejer9_NumberGame
                 playerList.RemoveRange(0, playerList.Count); //creo que vaciamos la colección
                 repeatGame = true;
                 timeToStartGame = 5;
+                timerStart = false;
                 //cerrar el hilo
             }
 
