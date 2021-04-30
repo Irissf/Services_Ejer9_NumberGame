@@ -23,7 +23,7 @@ namespace Services_Ejer9_NumberGame
         static bool gameStart = false;
         static int timeToStartGame = 5;//descendemos a 0
         static object key = new object();
-        static Thread threadTimer;
+        
         static int numberWin = 0;
         static bool repeatGame = false;
 
@@ -41,11 +41,8 @@ namespace Services_Ejer9_NumberGame
                     socketServe.Bind(ipEndPoint);
                     socketServe.Listen(3);
 
-                    //El hilo del timer
-                    threadTimer = new Thread(timerGame);
 
-                    //El numero ganador de la partida
-                    numberWin = randomNumber.Next(1, 21);
+                   
 
                     //Cuando aceptemos a un usuario lo metemos en un hilo
                     while (!gameStart)
@@ -73,6 +70,7 @@ namespace Services_Ejer9_NumberGame
             lock (key)
             {
                 playerList.Add(new Player(randomNumber.Next(1, 21), socketPlayer));
+                Console.WriteLine("Coleccion tamaño:"+playerList.Count);
             }
 
             using (NetworkStream ns = new NetworkStream(socketPlayer))
@@ -85,11 +83,13 @@ namespace Services_Ejer9_NumberGame
                     sw.WriteLine("Hello");
                     sw.WriteLine("num usuarios:" + playerList.Count);
                 }
-
                 if (playerList.Count >= 2)
                 {
+                
                     //si ya hay dos jugadores lanzamos la cuenta atrás y el timer al llegar a 0 cambia gamestart a true para que no entren más jugadores
 
+                    //El hilo del timer
+                    Thread threadTimer = new Thread(timerGame);
                     threadTimer.Start();
                 }
 
@@ -103,6 +103,10 @@ namespace Services_Ejer9_NumberGame
             //cuenta atrás
             while (timeToStartGame > 0)
             {
+                Console.WriteLine("Entro aqui");
+                //El numero ganador de la partida
+                numberWin = randomNumber.Next(1, 21);
+
                 Thread.Sleep(1000);
 
                 //variable común para más de un método
@@ -180,7 +184,7 @@ namespace Services_Ejer9_NumberGame
                 Console.WriteLine("Fin juego");
                 playerList.RemoveRange(0, playerList.Count); //creo que vaciamos la colección
                 repeatGame = true;
-                threadTimer.Abort();
+                timeToStartGame = 5;
                 //cerrar el hilo
             }
 
